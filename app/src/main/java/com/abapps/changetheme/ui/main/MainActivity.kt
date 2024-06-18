@@ -2,8 +2,8 @@ package com.abapps.changetheme.ui.main
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.location.Location
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -23,6 +23,9 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -33,6 +36,7 @@ import com.google.maps.android.compose.rememberMarkerState
 
 class MainActivity : ComponentActivity() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
     private val viewModel: MapsViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,9 +57,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                for (location in locationResult.locations) {
+                    viewModel.updateLocation(location)
+                    viewModel.fetchNearbyRestaurants(location)
+                    fusedLocationClient.removeLocationUpdates(this)
+                    break
+                }
+            }
+        }
     }
 
     private fun getLastKnownLocation() {
+        val locationRequest = LocationRequest.create().apply {
+            interval = 10000
+            fastestInterval = 5000
+            priority = LocationRequest.PRIORITY_HIGH_ACCURACY
+        }
+
         if (ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
@@ -66,20 +86,27 @@ class MainActivity : ComponentActivity() {
         ) {
             return
         }
-        fusedLocationClient.lastLocation
-            .addOnSuccessListener { location: Location? ->
-                location?.let {
-                    viewModel.updateLocation(it)
-                    viewModel.fetchNearbyRestaurants(it)
-                }
-            }
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            null
+        )
+//        fusedLocationClient.lastLocation
+//            .addOnSuccessListener { location: Location? ->
+//                Log.e("KAMELOO", location.toString())
+//                location?.let {
+//                    viewModel.updateLocation(it)
+//                    viewModel.fetchNearbyRestaurants(it)
+//                }
+//            }
     }
 }
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun RequestLocationPermission(onPermissionGranted: () -> Unit) {
-    val locationPermissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+    val locationPermissionState =
+        rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
 
     if (locationPermissionState.status.isGranted) {
         onPermissionGranted()

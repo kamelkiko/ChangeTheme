@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.abapps.changetheme.data.remote.RetrofitInstance
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class Restaurant(val name: String, val lat: Double, val lng: Double)
@@ -21,7 +22,9 @@ class MapsViewModel : ViewModel() {
     val uiState: StateFlow<MapsUiState> = _uiState
 
     fun updateLocation(location: Location) {
-        _uiState.value = _uiState.value.copy(currentLocation = location)
+        _uiState.update {
+            it.copy(currentLocation = location)
+        }
     }
 
     fun fetchNearbyRestaurants(location: Location) {
@@ -39,7 +42,9 @@ class MapsViewModel : ViewModel() {
                 val restaurants = response.results.map {
                     Restaurant(it.name, it.geometry.location.lat, it.geometry.location.lng)
                 }
-                _uiState.value = _uiState.value.copy(restaurants = restaurants)
+                _uiState.update {
+                    it.copy(restaurants = restaurants)
+                }
             } catch (e: Exception) {
                 Log.e("KAMELOO", e.message.toString())
             }
